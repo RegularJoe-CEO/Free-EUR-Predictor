@@ -1,4 +1,5 @@
 # Waller Decomposition
+[![DOI](https://zenodo.org/badge/1142184551.svg)](https://doi.org/10.5281/zenodo.18372227)
 
 **Multi-Resolution Wavelet Decomposition for EUR Forecasting in Unconventional Wells**
 
