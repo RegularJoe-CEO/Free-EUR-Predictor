@@ -205,3 +205,12 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Generated outputs
+*_forecast.csv
+*_forecast.png
+forecast_output.png
+batch_summary.csv
+wells/
+*.png
+
