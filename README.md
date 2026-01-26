@@ -1,6 +1,7 @@
 # Waller Decomposition
 [![DOI](https://zenodo.org/badge/1142184551.svg)](https://doi.org/10.5281/zenodo.18372227)
 
+![EUR Forecast with Uncertainty Quantification](waller_decomposition_forecast.png)
 **Multi-Resolution Wavelet Decomposition for EUR Forecasting in Unconventional Wells**
 
 **Author:** Eric Waller  
