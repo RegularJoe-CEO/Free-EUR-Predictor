@@ -132,7 +132,7 @@ def run_single_well(filepath, save_csv=True, save_plot=True, quiet=False):
         print("=" * 50)
         
         if "gas" in data and "oil" in data:
-            gor = data["gas"] / np.where(data["oil"] > 0, data["oil"], 0.001)
+            gor = (data["gas"] * 1000) / np.where(data["oil"] > 0, data["oil"], 0.001)
             print(f"\nGOR: Initial={gor[0]:.0f}  Current={gor[-1]:.0f} scf/bbl")
         if "water" in data and "oil" in data:
             wor = data["water"] / np.where(data["oil"] > 0, data["oil"], 0.001)
@@ -161,49 +161,84 @@ def run_single_well(filepath, save_csv=True, save_plot=True, quiet=False):
             print(f"\nSaved: {csv_path}")
     
     if save_plot:
-        n_plots = len(results)
-        fig, axes = plt.subplots(1, n_plots, figsize=(5*n_plots, 5), dpi=150)
-        if n_plots == 1:
-            axes = [axes]
+        # ARIES/PHDWin style: single combined semi-log plot
+        plt.rcParams.update({
+            'font.family': 'sans-serif',
+            'font.size': 11,
+            'axes.linewidth': 0.8,
+            'grid.alpha': 0.3
+        })
         
-        colors = {"gas": "red", "oil": "green", "water": "blue"}
-        units = {"gas": "MSCF/d", "oil": "bbl/d", "water": "bwpd"}
+        fig, ax = plt.subplots(figsize=(10, 7), dpi=150)
+        
+        # Industry standard colors
+        colors = {"gas": "#DC143C", "oil": "#228B22", "water": "#4169E1"}
+        phase_labels = {"gas": "Gas (MSCF/d)", "oil": "Oil (bbl/d)", "water": "Water (bwpd)"}
         eur_units = {"gas": "MMSCF", "oil": "MBO", "water": "MBW"}
         
-        for i, phase in enumerate(results.keys()):
-            ax = axes[i]
+        # Convert days to months for x-axis
+        t_months = t / 30.44
+        T_MAX_MONTHS = T_MAX / 30.44
+        
+        # Plot each phase
+        for phase in results.keys():
             r = results[phase]
+            t_forecast_months = r["t"] / 30.44
             
-            ax.fill_between(r["t"], r["q_p10"], r["q_p90"], color=colors[phase], alpha=0.2, label="P10-P90")
-            ax.plot(r["t"], r["q_p50"], color=colors[phase], linewidth=2, label="P50 Forecast")
+            # P50 forecast line (solid)
+            ax.semilogy(t_forecast_months, r["q_p50"], color=colors[phase], linewidth=2, 
+                       label=f'{phase.capitalize()} P50 - EUR: {r["p50"]:.0f} {eur_units[phase]}')
             
-            obs_flowback = data[phase][flowback_mask] if n_flowback > 0 else []
+            # P10/P90 lines (dashed, thinner)
+            ax.semilogy(t_forecast_months, r["q_p10"], color=colors[phase], linewidth=1, 
+                       linestyle='--', alpha=0.6)
+            ax.semilogy(t_forecast_months, r["q_p90"], color=colors[phase], linewidth=1, 
+                       linestyle='--', alpha=0.6)
+            
+            # Historical data points (black/gray circles)
             obs_production = data[phase][~flowback_mask]
-            t_flowback = t[flowback_mask] if n_flowback > 0 else []
-            t_production = t[~flowback_mask]
+            t_production_months = t[~flowback_mask] / 30.44
+            ax.semilogy(t_production_months, obs_production, 'o', color='black', 
+                       markersize=4, alpha=0.7, zorder=5)
             
-            if len(t_flowback) > 0:
-                ax.scatter(t_flowback, obs_flowback, s=30, color="orange", alpha=0.7, label="Flowback", zorder=5)
-            ax.scatter(t_production, obs_production, s=30, color="black", alpha=0.7, label="Production", zorder=5)
-            
-            ax.axvline(x=t[-1], color="gray", linestyle=":", linewidth=1)
+            # Flowback points (lighter gray)
             if n_flowback > 0:
-                ax.axvline(x=FLOWBACK_DAYS, color="orange", linestyle="--", linewidth=1, alpha=0.5)
-            
-            ax.set_xlabel("Time (days)")
-            ax.set_ylabel(f"{phase.capitalize()} ({units[phase]})")
-            ax.set_title(f"{phase.capitalize()} EUR: {r['p50']:.1f} {eur_units[phase]}")
-            ax.legend(loc="upper right", fontsize=8)
-            ax.grid(True, alpha=0.3)
-            ax.set_xlim(0, T_MAX)
-            ax.set_ylim(0, None)
+                obs_flowback = data[phase][flowback_mask]
+                t_flowback_months = t[flowback_mask] / 30.44
+                ax.semilogy(t_flowback_months, obs_flowback, 'o', color='gray', 
+                           markersize=3, alpha=0.5, zorder=4)
+        
+        # Axis formatting
+        ax.set_xlabel('Time (months)', fontsize=12, fontweight='medium')
+        ax.set_ylabel('Rate', fontsize=12, fontweight='medium')
+        ax.set_xlim(0, T_MAX_MONTHS)
+        ax.set_ylim(bottom=1)
+        
+        # Light gray horizontal grid only (PHDWin style)
+        ax.yaxis.grid(True, linestyle='-', alpha=0.3, color='gray')
+        ax.xaxis.grid(False)
+        
+        # Clean legend in upper right
+        ax.legend(loc='upper right', framealpha=0.95, fontsize=10)
+        
+        # EUR callout box
+        eur_text = "EUR (P50)\n"
+        for phase in results.keys():
+            eur_text += f"{phase.capitalize()}: {results[phase]['p50']:.0f} {eur_units[phase]}\n"
+        ax.text(0.02, 0.02, eur_text.strip(), transform=ax.transAxes, fontsize=10,
+                verticalalignment='bottom', fontfamily='monospace',
+                bbox=dict(boxstyle='round', facecolor='white', edgecolor='gray', alpha=0.9))
+        
+        # Title
+        ax.set_title('Waller Decomposition EUR Forecast', fontsize=14, fontweight='bold', pad=10)
         
         plt.tight_layout()
         plot_path = f"{basename}_forecast.png"
-        plt.savefig(plot_path, dpi=150)
+        plt.savefig(plot_path, dpi=150, facecolor='white', edgecolor='none')
         plt.close()
         if not quiet:
             print(f"Saved: {plot_path}")
+
     
     return {
         "file": basename,

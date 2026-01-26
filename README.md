@@ -1,5 +1,7 @@
 # Waller Decomposition
 
+![Waller Decomposition EUR Forecast](sample_well_forecast.png)
+
 **Multi-Resolution Wavelet EUR Forecasting for Unconventional Wells**
 
 **Author:** Eric Waller  
