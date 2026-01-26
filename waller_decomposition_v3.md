@@ -7,7 +7,13 @@
 **Author:** Eric Waller  
 **Date:** January 2026  
 **Status:** Research  
-**License:** MIT
+**License:** Copyright (c) 2026 Eric Waller. All Rights Reserved.
+
+This work is provided for academic review and personal evaluation only.
+Commercial use, redistribution, or derivative works require explicit
+written permission from the author.
+
+For licensing inquiries: ewaller.com
 
 ---
 
@@ -675,7 +681,7 @@ The synthetic validation demonstrates that the Waller Decomposition provides EUR
 
 ---
 
-**© 2026 Eric Waller. Released under MIT License.**
+**© 2026 Eric Waller. All Rights Reserved.**
 
 - Website: [ewaller.com](https://ewaller.com)
 - Company: [luxiedge.com](https://luxiedge.com)
