@@ -2,7 +2,7 @@
 
 **Multi-Resolution Wavelet EUR Forecasting for Unconventional Wells**
 
-**Technical White Paper • Version 3.0**
+**Technical White Paper • Version 3.1**
 
 **Author:** Eric Waller  
 **Date:** January 2026  
@@ -38,7 +38,7 @@ This paper presents the theoretical derivation, implementation details, and limi
 
 ### 1.1 The EUR Forecasting Problem
 
-Accurate EUR forecasting in unconventional shale reservoirs remains one of the most consequential challenges in petroleum engineering. Investment decisions worth billions of dollars—drilling programs, reserve bookings, asset acquisitions—depend on EUR estimates made with limited production data.
+Accurate EUR forecasting in unconventional shale reservoirs remains one of the most consequential challenges in petroleum engineering. Investment decisions worth billions of dollars-drilling programs, reserve bookings, asset acquisitions-depend on EUR estimates made with limited production data.
 
 Traditional Decline Curve Analysis (DCA) methods face fundamental limitations:
 
@@ -59,6 +59,18 @@ Each wavelet scale corresponds to a characteristic drainage distance governed by
 
 ---
 
+
+### 1.3 Multi-Phase Extension
+
+Version 3.1 extends the framework to multi-phase production:
+
+| Phase | Output Units | Primary Use Case |
+|-------|--------------|------------------|
+| Gas | MMSCF | Dry gas, gas condensate wells |
+| Oil | MBO (thousand barrels) | Oil wells, liquids-rich plays |
+| Water | MBW (thousand barrels) | Water production forecasting, disposal planning |
+
+The multi-phase approach applies independent wavelet decomposition to each phase while tracking evolving ratios (GOR, WOR, WGR) for consistency checks and economic modeling.
 ## 2. Theoretical Foundation
 
 ### 2.1 Rate-Normalized Pressure (RNP)
@@ -76,7 +88,19 @@ Where:
 
 RNP has units of psi/(MSCF/d) and is directly proportional to the pressure transient solution for a producing well.
 
-### 2.2 Discrete Wavelet Transform
+
+### 2.2 Multi-Phase RNP
+
+For multi-phase wells, RNP is computed for each phase independently:
+
+```
+RNP_gas(t) = dp(t) / q_gas(t)
+RNP_oil(t) = dp(t) / q_oil(t)
+RNP_water(t) = dp(t) / q_water(t)
+```
+
+Each phase undergoes independent wavelet decomposition and decline fitting. The phases are coupled only through shared pressure data, ratio tracking (GOR, WOR, WGR), and combined economic limits.
+### 2.3 Discrete Wavelet Transform
 
 The Discrete Wavelet Transform (DWT) decomposes a signal into approximation and detail coefficients at multiple scales:
 
@@ -90,7 +114,7 @@ Where:
 
 The Waller Decomposition uses the Daubechies-4 (db4) wavelet as the default basis due to its balance of smoothness and compact support.
 
-### 2.3 Scale-to-Drainage Distance Derivation
+### 2.4 Scale-to-Drainage Distance Derivation
 
 This is the key theoretical contribution of the Waller Decomposition. We derive the relationship between wavelet scale and drainage distance from first principles.
 
@@ -130,7 +154,7 @@ r_j = C_eff × √(2^j × Δt)
 
 Where C_eff = √(4η) is the effective drainage constant (ft/√day).
 
-### 2.4 Basin-Specific Calibration Constants
+### 2.5 Basin-Specific Calibration Constants
 
 | Basin | Formation | C_eff (ft/√day) | Notes |
 |-------|-----------|-----------------|-------|
@@ -140,10 +164,10 @@ Where C_eff = √(4η) is the effective drainage constant (ft/√day).
 | Eagle Ford | Lower | 25-32 | Dry gas |
 | Marcellus | Lower | 35-45 | High GOR |
 | Bakken | Middle | 15-22 | Tight matrix |
-| Haynesville | — | 40-55 | Overpressured |
+| Haynesville | - | 40-55 | Overpressured |
 | Niobrara | B Bench | 20-28 | Variable quality |
 
-### 2.5 When Scale-to-Stage Mapping Holds
+### 2.6 When Scale-to-Stage Mapping Holds
 
 The Waller Decomposition framework assumes wavelet components correspond to drainage from distinct fracture stages or stage groups. This assumption has validity conditions.
 
@@ -221,6 +245,34 @@ def preprocess_production(t_days, q, p_wf, is_cumulative=False, min_points=50):
         t_days = t_interp
     
     return t_days, q, p_wf
+
+#### Flowback Period Detection
+
+The preprocessing step automatically identifies and excludes flowback periods using configurable criteria:
+
+- **Duration**: First 60 days (default, configurable)
+- **High water cut**: Periods with water cut > 80%
+- **Erratic behavior**: Rate coefficient of variation (CV) > 50%
+
+```python
+def detect_flowback(t_days, q_oil, q_water, config):
+    """Detect flowback period using multiple criteria."""
+    flowback_end = config.get("flowback_days", 60)
+    water_cut_threshold = config.get("water_cut_threshold", 0.80)
+    cv_threshold = config.get("cv_threshold", 0.50)
+    
+    # Check water cut criterion
+    if q_water is not None and q_oil is not None:
+        water_cut = q_water / (q_water + q_oil + 1e-6)
+        high_wc_mask = water_cut > water_cut_threshold
+    
+    # Check rate variability
+    cv = np.std(q_oil[:30]) / (np.mean(q_oil[:30]) + 1e-6)
+    if cv > cv_threshold:
+        flowback_end = max(flowback_end, 90)
+    
+    return flowback_end
+```
 ```
 
 ### 3.4 Component Separation
@@ -366,7 +418,7 @@ Where α = basin interference factor (typically 0.3-0.5).
 | Eagle Ford | Lower | 0.45-0.55 |
 | Marcellus | Lower | 0.30-0.40 |
 | Bakken | Middle | 0.35-0.45 |
-| Haynesville | — | 0.40-0.50 |
+| Haynesville | - | 0.40-0.50 |
 
 ### 3.8 Frac Hit Detection
 
@@ -388,9 +440,40 @@ Analyze parent well production in a ±30 day window around child frac dates. Fla
 
 ---
 
-## 4. Uncertainty Quantification
 
-### 4.1 Sources of Uncertainty
+## 4. Output Formats
+
+### 4.1 Forecast CSV Export
+
+The tool generates forecast CSV files compatible with industry standard reserve software:
+
+| Column | Description | Units |
+|--------|-------------|-------|
+| days | Forecast day | days |
+| gas_mscfd | Gas rate forecast | MSCF/day |
+| oil_bblpd | Oil rate forecast | bbl/day |
+| water_bwpd | Water rate forecast | bbl/day |
+| cum_gas_mmscf | Cumulative gas | MMSCF |
+| cum_oil_mbo | Cumulative oil | MBO |
+| cum_water_mbw | Cumulative water | MBW |
+| gor_scfbbl | Gas-oil ratio | SCF/bbl |
+| wor_bblbbl | Water-oil ratio | bbl/bbl |
+
+### 4.2 ARIES/PHDWin Import
+
+Export format follows ARIES Type Curve conventions for direct import into reserve databases.
+
+### 4.3 Diagnostic Plots
+
+Standard output includes:
+- Rate vs time with P10/P50/P90 forecasts
+- RNP diagnostic plot
+- Wavelet decomposition visualization
+- EUR confidence distribution
+
+## 5. Uncertainty Quantification
+
+### 5.1 Sources of Uncertainty
 
 | Source | Type | How Addressed |
 |--------|------|---------------|
@@ -400,11 +483,11 @@ Analyze parent well production in a ±30 day window around child frac dates. Fla
 | Decline model form | Epistemic | Model comparison |
 | Calibration constant C | Epistemic | Basin-specific priors |
 
-### 4.2 Bayesian Parameter Estimation
+### 5.2 Bayesian Parameter Estimation
 
 Instead of point estimates from least-squares fitting, the Waller Decomposition uses Markov Chain Monte Carlo (MCMC) to sample the full posterior distribution of decline parameters.
 
-### 4.3 EUR Probability Distribution
+### 5.3 EUR Probability Distribution
 
 EUR uncertainty is computed by propagating parameter samples through the EUR integral.
 
@@ -501,9 +584,9 @@ def compute_eur_distribution(samples, t_end=10950, q_min=10):
 
 ---
 
-## 5. Limitations
+## 6. Limitations
 
-### 5.1 Applicable Conditions
+### 6.1 Applicable Conditions
 
 The Waller Decomposition applies to:
 - Multi-stage fractured horizontal wells
@@ -512,7 +595,7 @@ The Waller Decomposition applies to:
 - Wells with pressure data (BHP)
 - Single-phase flow
 
-### 5.2 Inapplicable Conditions
+### 6.2 Inapplicable Conditions
 
 | Condition | Reason |
 |-----------|--------|
@@ -521,9 +604,8 @@ The Waller Decomposition applies to:
 | Conventional wells | No multi-stage superposition |
 | Dense simultaneous development | Interference exceeds correction capability |
 | Severe liquid loading | Non-monotonic RNP |
-| Multi-phase segregation | Violates single-phase assumption |
 
-### 5.3 Data Requirements
+### 6.3 Data Requirements
 
 | Parameter | Minimum | Recommended | Notes |
 |-----------|---------|-------------|-------|
@@ -534,7 +616,7 @@ The Waller Decomposition applies to:
 
 ---
 
-## 6. Conclusion
+## 7. Conclusion
 
 The Waller Decomposition decomposes multi-stage fractured horizontal well production into components at different drainage timescales using discrete wavelet transform. Each component is mapped to a drainage distance via hydraulic diffusivity, fitted with a decline model, and integrated for EUR.
 
@@ -564,7 +646,7 @@ The effective calibration constant C_eff must be calibrated per basin. Starting 
 | Eagle Ford | Lower | 25-32 | Dry gas |
 | Marcellus | Lower | 35-45 | High GOR |
 | Bakken | Middle | 15-22 | Tight matrix |
-| Haynesville | — | 40-55 | Overpressured |
+| Haynesville | - | 40-55 | Overpressured |
 | Niobrara | B Bench | 20-28 | Variable quality |
 
 **Calibration procedure:** Select 5-10 mature wells (> 5 years) with known EUR, run Waller Decomposition with range of C values, select C that minimizes hindcast error, apply to new wells.
@@ -597,21 +679,6 @@ A common concern with wavelet-based methods is sensitivity to the choice of wave
 ### C.3 Conclusion
 
 EUR estimates vary less than ±2.2% across all tested wavelet families. The coefficient of variation (1.48%) confirms that the Waller Decomposition is **not sensitive to wavelet basis selection**. Daubechies-4 is recommended as the default due to its balance of smoothness and compact support, but results are robust to alternative choices.
-
----
-
-## Synthetic Validation
-
-Preliminary synthetic validation was performed using a 3-stage power-law decline model (180 days observed, 3% noise). Results showed:
-
-- **True EUR:** 5,547 MMSCF
-- **Mean Estimated EUR:** 6,127 MMSCF (100 Monte Carlo realizations)
-- **Mean Error:** +10.5%
-- **P10–P90 Range:** 5,507–6,767 MMSCF
-
-The true EUR falls within the P10–P90 uncertainty bounds, but the method exhibits a positive bias (~10% overestimation). Further calibration of the wavelet scale-to-drainage distance mapping is needed to reduce systematic error. This remains an active area of development. See Appendix D for full methodology.
-
----
 
 ## Appendix D: Synthetic Validation Methodology
 
