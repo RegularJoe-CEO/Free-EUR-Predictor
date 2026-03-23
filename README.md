@@ -23,6 +23,9 @@ Features:
 - CSV export for ARIES/PHDWin import
 - Batch mode for multi-well portfolios
 
+## NOTE 
+The current public script is a simplified prototype for multi-phase EUR forecasting and visualization. The broader wavelet/RNP framework is described in the white paper and is only partially reflected in the public demo code.
+
 ## Installation
 
 `pip install -r requirements.txt`
