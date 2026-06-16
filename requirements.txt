@@ -1,14 +1,5 @@
 torch
-xgboost
+numpy
+pandas
 streamlit
-mlflow
-dvc
-hydra-core
-optuna
-shap
-geopandas
-fastapi
-polars
-pywavelets
 scikit-learn
-plotly

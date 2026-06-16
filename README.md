@@ -1,1 +1,11 @@
-**EUR Killer v5: Free Physics-First Dominator** Destroy Petra/IHS/PHDWin/ARIES. From Navier-Stokes/Darcy PDEs + PINN surrogate + Bayesian RL opt. Day-30 EUR ±5% accuracy. Simple Streamlit free app. Open source. Your vision executed.
+# EUR Physics Predictor
+
+Professional repository for advanced Estimated Ultimate Recovery forecasting in shale wells using first-principles physics-informed models.
+
+## Structure
+- src/: core models
+- data/: sample
+- notebooks/: analysis
+- app/: UI
+
+Version 2.0 in progress. Clean professional implementation.
