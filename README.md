@@ -12,7 +12,7 @@ Superior day 30+ predictions. Tuned for Permian Basin (Wolfcamp / Bone Spring). 
 
 [![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FRegularJoe-CEO%2FFree-EUR-Predictor)
 
-**Or try the existing demo:** [https://free-eur-predictor.replit.app/](https://free-eur-predictor.replit.app/)
+**If the deploy buttons don't work for you, try the ready-to-use demo here:** [https://free-eur-predictor.replit.app/](https://free-eur-predictor.replit.app/)
 
 (Click a button above → Connect GitHub → Deploy in ~30 seconds. Get your own public URL.)
 
